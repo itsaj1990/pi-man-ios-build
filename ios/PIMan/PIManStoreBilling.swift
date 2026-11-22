@@ -60,15 +60,15 @@ final class PIManStoreBilling {
         let cookies: [HTTPCookie] = await withCheckedContinuation { continuation in
             browser.webView.configuration.websiteDataStore.httpCookieStore.getAllCookies {
                 continuation.resume(returning: $0.filter {
-                    $0.isSecure && ($0.domain == "app.pi-man.com" || $0.domain == ".app.pi-man.com")
+                    PIManBrowser.isOwnSecureCookie($0)
                 })
             }
         }
-        let url = URL(string: "https://app.pi-man.com/api/billing/" + path)!
+        let url = URL(string: "/api/billing/" + path, relativeTo: PIManBrowser.origin)!.absoluteURL
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("https://app.pi-man.com", forHTTPHeaderField: "Origin")
+        req.setValue(PIManBrowser.origin.absoluteString, forHTTPHeaderField: "Origin")
         req.cachePolicy = .reloadIgnoringLocalCacheData
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         if let header = HTTPCookie.requestHeaderFields(with: cookies)["Cookie"] {
@@ -83,7 +83,7 @@ final class PIManStoreBilling {
               let value = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { throw BillingFailure.invalidResponse }
         for cookie in configuration.httpCookieStorage?.cookies(for: PIManBrowser.origin) ?? []
-            where cookie.isSecure && (cookie.domain == "app.pi-man.com" || cookie.domain == ".app.pi-man.com") {
+            where PIManBrowser.isOwnSecureCookie(cookie) {
             await withCheckedContinuation { continuation in
                 browser.webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
                     continuation.resume()
