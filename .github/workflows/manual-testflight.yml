@@ -32,6 +32,11 @@ jobs:
           swift ios/scripts/generate-app-icon.swift public/icons/pi-man-512.png ios/PIMan/Assets.xcassets/AppIcon.appiconset/PIManIcon-1024.png
           bash ios/scripts/configure-google-signin.sh
           xcodegen generate --spec ios/project.yml --project ios
+      - name: Force native iOS routing to the sandbox preview
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :PIManEnvironment sandbox" ios/PIMan/Info.plist
+          selected="$(/usr/libexec/PlistBuddy -c 'Print :PIManEnvironment' ios/PIMan/Info.plist)"
+          test "$selected" = "sandbox"
       - name: Sign, archive and upload PI Man
         env:
           PI_MAN_BUILD_NUMBER: ${{ inputs.build_number }}
