@@ -140,12 +140,13 @@ final class PIManNativeSignIn: NSObject, ASAuthorizationControllerDelegate,
     private func complete(provider: String, token: String, nonce: String?, accessToken: String?) async throws {
         guard let browser else { throw AuthFailure.invalidResponse }
         let requestedMode = mode
-        let url = URL(string: "https://app.pi-man.com/api/auth/" +
-                      (requestedMode == "link" ? "native-link" : "native-token"))!
+        let url = URL(string: "/api/auth/" +
+                      (requestedMode == "link" ? "native-link" : "native-token"),
+                      relativeTo: PIManBrowser.origin)!.absoluteURL
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("https://app.pi-man.com", forHTTPHeaderField: "Origin")
+        request.setValue(PIManBrowser.origin.absoluteString, forHTTPHeaderField: "Origin")
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
         var payload: [String: Any] = ["provider": provider, "credential": token,
@@ -161,7 +162,7 @@ final class PIManNativeSignIn: NSObject, ASAuthorizationControllerDelegate,
             let currentCookies: [HTTPCookie] = await withCheckedContinuation { continuation in
                 browser.webView.configuration.websiteDataStore.httpCookieStore.getAllCookies {
                     continuation.resume(returning: $0.filter {
-                        $0.isSecure && ($0.domain == "app.pi-man.com" || $0.domain == ".app.pi-man.com")
+                        PIManBrowser.isOwnSecureCookie($0)
                     })
                 }
             }
@@ -188,7 +189,7 @@ final class PIManNativeSignIn: NSObject, ASAuthorizationControllerDelegate,
         let cookies = configuration.httpCookieStorage?.cookies(for: PIManBrowser.origin) ?? []
         guard cookies.contains(where: { $0.name.hasPrefix("sb-") && $0.name.contains("-auth-token") })
         else { throw AuthFailure.invalidResponse }
-        for cookie in cookies where cookie.domain == "app.pi-man.com" || cookie.domain == ".app.pi-man.com" {
+        for cookie in cookies where PIManBrowser.isOwnSecureCookie(cookie) {
             await withCheckedContinuation { continuation in
                 browser.webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
                     continuation.resume()

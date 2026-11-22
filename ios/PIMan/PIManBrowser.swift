@@ -9,7 +9,24 @@ import WebKit
 /// The origin allowlist is navigation policy, not an authentication boundary.
 /// Supabase sessions remain in WKWebView's persistent first-party cookie store.
 final class PIManBrowser: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
-    static let origin = URL(string: "https://app.pi-man.com")!
+    // Only fixed reviewed targets; the public TestFlight builder forces sandbox.
+    // Page JavaScript cannot choose a different API, host or session origin.
+    private static let productionOrigin = URL(string: "https://app.pi-man.com")!
+    private static let sandboxOrigin = URL(string: "https://pi-man-v10-git-feat-billing-entitlement-efe602-iandresari4-2394.vercel.app")!
+    static let origin: URL = {
+        let environment = Bundle.main.object(forInfoDictionaryKey: "PIManEnvironment") as? String ?? "production"
+        switch environment {
+        case "production": return productionOrigin
+        case "sandbox": return sandboxOrigin
+        default: fatalError("Unsupported PI Man iOS environment")
+        }
+    }()
+
+    static func isOwnSecureCookie(_ cookie: HTTPCookie) -> Bool {
+        guard cookie.isSecure, let host = origin.host?.lowercased() else { return false }
+        let domain = cookie.domain.lowercased()
+        return domain == host || domain == "." + host
+    }
 
     @Published private(set) var path = "/"
     @Published private(set) var loading = true
